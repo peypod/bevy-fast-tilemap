@@ -372,6 +372,10 @@ impl<'a, C: Customization> MapIndexer<'a, C> {
         self.map.map_texture[idx]
     }
 
+    pub fn map_texture(&self) -> &Vec<u32> {
+        &self.map.map_texture
+    }
+
     pub fn world_to_map(&self, world: Vec2) -> Vec2 {
         self.map.world_to_map(world)
     }
