@@ -54,6 +54,7 @@ pub struct Map<C: Customization = NoCustomization> {
     pub(crate) perspective_overhangs: bool,
     pub(crate) dominance_overhangs: bool,
     pub(crate) force_underhangs: Vec<Vec2>,
+    pub(crate) force_n_tiles: Option<UVec2>,
 
     pub(crate) _customization: std::marker::PhantomData<C>,
 }
@@ -70,6 +71,7 @@ impl<C: Customization> Default for Map<C> {
             perspective_overhangs: true,
             dominance_overhangs: false,
             force_underhangs: Vec::new(),
+            force_n_tiles: None,
             _customization: std::marker::PhantomData,
         }
     }
@@ -288,7 +290,7 @@ impl<C: Customization> Map<C> {
         };
 
         self.map_uniform
-            .update_atlas_size(atlas_texture.size().as_vec2())
+            .update_atlas_size(atlas_texture.size().as_vec2(), self.force_n_tiles)
     }
 
     pub(crate) fn update_inverse_projection(&mut self) {
@@ -558,9 +560,12 @@ pub fn update_map_vertex_attributes<C: Customization>(
         };
 
         let mut mesh = if manage_mesh.is_some() {
-            Mesh::from(Rectangle {
-                half_size: map.world_size() / 2.0,
-            })
+            let p = map.world_size() / 2.0;
+            Mesh::from(Triangle2d::new(
+                vec2(-p.x, p.y),
+                vec2(-p.x, -3.0 * p.y),
+                vec2(3.0 * p.x, p.y),
+            ))
         } else {
             meshes.get(&mesh_handle.unwrap().0).unwrap().clone()
         };

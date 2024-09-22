@@ -125,6 +125,7 @@ fn atlas_index_to_position(index: u32, tile_position: vec2<i32>) -> vec2<f32> {
     var index_f = f32(index);
     var index_y = floor(index_f / f32(map.n_tiles.x));
     var index_x = index_f - index_y * f32(map.n_tiles.x);
+
     var index2d = vec2<f32>(index_x, index_y);
 
     if map.atlas_tile_size_factor > 1 {
@@ -510,15 +511,6 @@ fn render_perspective_overhangs(color: vec4<f32>, pos: MapPosition, animation_st
 
     return c;
 }
-
-fn desaturate(color: vec4<f32>, amount: f32) -> vec4<f32> {
-    var luminance = vec4<f32>(0.299, 0.587, 0.114, 0.0);
-    var gr = dot(luminance, color);
-    var gray = vec4<f32>(gr, gr, gr, color.a);
-    var amnt = vec4<f32>(amount, amount, amount, amount);
-    return mix(color, gray, amnt);
-}
-
 
 @fragment
 fn fragment(
