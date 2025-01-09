@@ -1,5 +1,5 @@
 use super::prelude::*;
-use bevy::{math::uvec2, prelude::*};
+use bevy::{asset::RenderAssetUsages, math::uvec2, prelude::*, render::storage::ShaderStorageBuffer};
 
 use super::tile_projection::TileProjection;
 
@@ -145,14 +145,14 @@ impl<C: Customization> MapBuilder<C> {
     }
 
     /// Build the map component.
-    pub fn build(self) -> Map<C> {
-        self.build_and_initialize(|_| {})
-    }
+    //pub fn build(self) -> Map<C> {
+    //    self.build_and_initialize(|_| {})
+    //}
 
     /// Build the map component and immediately initialize the map
     /// data with the given initializer callback.
     /// The callback will receive a mutable reference to a `MapIndexer`.
-    pub fn build_and_initialize<F>(mut self, initializer: F) -> Map<C>
+    pub fn build_and_initialize<F>(mut self, initializer: F, mut shader_buffers: ResMut<Assets<ShaderStorageBuffer>>) -> Map<C>
     where
         F: FnOnce(&mut MapIndexerMut<C>),
     {
@@ -161,7 +161,21 @@ impl<C: Customization> MapBuilder<C> {
             0u32,
         );
 
-        initializer(&mut MapIndexerMut::<C> { map: &mut self.map });
+        let data: Vec<u32> = Vec::new();
+        let mut asset = ShaderStorageBuffer::with_size(data.len(), RenderAssetUsages::default()); 
+
+        asset.set_data(data);
+
+        let handle = shader_buffers.add(asset);
+
+        initializer(&mut MapIndexerMut::<C> { 
+            map: &mut self.map,
+//            shader_buff: shader_buffers.get_mut(self.map.map_texture_handle).unwrap(), 
+        
+        });
+
+        let shader_buff = shader_buffers.get_mut(&mut self.map.map_texture_handle).unwrap();
+
 
         self.map.update_inverse_projection();
         self.map.map_uniform.update_world_size();
@@ -172,7 +186,7 @@ impl<C: Customization> MapBuilder<C> {
     /// Build the map component and immediately initialize the map
     /// data with the given initializer callback.
     /// The callback will receive a `UVec2` and return a `u32`.
-    pub fn build_and_set<F>(self, mut initializer: F) -> Map<C>
+    pub fn build_and_set<F>(self, mut initializer: F, shader_buffers: ResMut<Assets<ShaderStorageBuffer>>) -> Map<C>
     where
         F: FnMut(UVec2) -> u32,
     {
@@ -185,6 +199,8 @@ impl<C: Customization> MapBuilder<C> {
                     m.set(x, y, initializer(uvec2(x, y)));
                 }
             }
-        })
+        },
+            shader_buffers
+        )
     } // build_and_set()
 }

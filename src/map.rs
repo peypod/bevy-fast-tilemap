@@ -1,13 +1,12 @@
 use bevy::{
-    math::{dmat2, vec2, Vec3Swizzles},
-    prelude::*,
-    render::{
-        mesh::MeshVertexAttribute,
-        render_resource::{AsBindGroup, ShaderDefVal, ShaderRef, ShaderType, VertexFormat},
-        texture::{ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
-    },
-    sprite::{Material2d, Mesh2dHandle},
+    image::{ImageFilterMode, ImageSampler, ImageSamplerDescriptor}, math::{dmat2, vec2, Vec3Swizzles}, prelude::*, render::{
+        mesh::MeshVertexAttribute, render_resource::{AsBindGroup, ShaderDefVal, ShaderRef, ShaderType, VertexFormat}, storage::ShaderStorageBuffer, 
+    }, sprite::Material2d//, MaterialMesh2dHandle},
 };
+
+//use bevy::render::texture::ImageSampler;
+//use bevy::render::texture::ImageFilterMode;
+//use bevy::render::texture::ImageSamplerDescriptor;
 
 use super::{
     map_builder::MapBuilder,
@@ -26,7 +25,14 @@ const ATTRIBUTE_ANIMATION_STATE: MeshVertexAttribute =
 pub struct DefaultUserData {
     x: u32,
 }
+#[derive(Component, Clone)]
+pub struct MapHandle<C: Customization = NoCustomization>(pub Handle<Map<C>>);
 
+impl<C: Customization> Default for MapHandle<C> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 /// Map, holding handles to a map texture with the tile data and an atlas texture
 /// with the tile renderings.
 #[derive(Asset, Debug, Clone, Reflect, AsBindGroup)]
@@ -42,12 +48,15 @@ pub struct Map<C: Customization = NoCustomization> {
 
     /// Texture containing the tile IDs (one per each pixel)
     #[storage(100, read_only)]
+    pub(crate) map_texture_handle: Handle<ShaderStorageBuffer>,
     pub(crate) map_texture: Vec<u32>,
-
+    
     /// Atlas texture with the individual tiles
     #[texture(101)]
     #[sampler(102)]
     pub(crate) atlas_texture: Handle<Image>,
+
+
 
     pub(crate) perspective_defs: Vec<String>,
     pub(crate) perspective_underhangs: bool,
@@ -64,7 +73,8 @@ impl<C: Customization> Default for Map<C> {
         Self {
             map_uniform: Default::default(),
             user_data: Default::default(),
-            map_texture: Vec::new(),
+            map_texture_handle: Handle::default(),
+            map_texture: Default::default(),
             atlas_texture: Default::default(),
             perspective_defs: Vec::new(),
             perspective_underhangs: true,
@@ -137,7 +147,7 @@ impl MapAttributes {
 
     fn set_animation_state(_attributes: Option<&MapAttributes>, mesh: &mut Mesh, time: &Time) {
         let l = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len();
-        let v = vec![time.elapsed_seconds_wrapped(); l];
+        let v = vec![time.elapsed_secs_wrapped(); l];
         mesh.insert_attribute(ATTRIBUTE_ANIMATION_STATE, v);
     }
 }
@@ -374,9 +384,9 @@ impl<'a, C: Customization> MapIndexer<'a, C> {
         self.map.map_texture[idx]
     }
 
-    pub fn map_texture(&self) -> &Vec<u32> {
-        &self.map.map_texture
-    }
+    //pub fn map_texture(&self) -> &Vec<u32> {
+    //    &self.map.map_texture
+    //}
 
     pub fn world_to_map(&self, world: Vec2) -> Vec2 {
         self.map.world_to_map(world)
@@ -403,6 +413,11 @@ impl<'a, C: Customization> MapIndexer<'a, C> {
 // #[derive(Debug)]
 pub struct MapIndexerMut<'a, C: Customization = NoCustomization> {
     pub(crate) map: &'a mut Map<C>,
+}
+
+#[derive(Resource)]
+pub struct MapStorageBuffer {
+    pub(crate) shader_buff: ShaderStorageBuffer
 }
 
 impl<'a, C: Customization> MapIndexerMut<'a, C> {
@@ -437,13 +452,24 @@ impl<'a, C: Customization> MapIndexerMut<'a, C> {
     }
 
     /// Set tile at given position.
-    pub fn set(&mut self, x: u32, y: u32, v: u32) {
+    pub fn set(
+        &mut self, x: u32, y: u32, v: u32, 
+    ) {
         // ensure x/y do not go out of bounds individually (even if the final index is in-bounds)
         if x >= self.size().x || y >= self.size().y {
             return;
         }
         let idx = y as usize * self.size().x as usize + x as usize;
         self.map.map_texture[idx] = v;
+    }
+
+    pub fn set_buffer(&mut self, shader_buff: &mut ShaderStorageBuffer) {
+        
+        shader_buff.set_data(self.map.map_texture.clone());
+        //let Some(buffer) = shader_storage_buffer.get_mut(&self.map.map_texture_handle) else {
+        //    return;
+        //};
+
     }
 
     pub fn world_to_map(&self, world: Vec2) -> Vec2 {
@@ -469,12 +495,12 @@ impl<'a, C: Customization> MapIndexerMut<'a, C> {
 
 pub fn log_map_events<C: Customization>(
     mut ev_asset: EventReader<AssetEvent<Map<C>>>,
-    map_handles: Query<&Handle<Map<C>>>,
+    map_handles: Query<&MapHandle<C>>,
 ) {
     for ev in ev_asset.read() {
         for map_handle in map_handles.iter() {
             match ev {
-                AssetEvent::Modified { id } if *id == map_handle.id() => {
+                AssetEvent::Modified { id } if *id == map_handle.0.id() => {
                     debug!("Map modified");
                 }
                 _ => (),
@@ -492,7 +518,7 @@ pub fn update_loading_maps<C: Customization>(
         (
             Entity,
             Option<&MapAttributes>,
-            &Handle<Map<C>>,
+            &MapHandle<C>,
             Option<&MeshManagedByMap>,
         ),
         With<MapLoading>,
@@ -502,7 +528,7 @@ pub fn update_loading_maps<C: Customization>(
     time: Res<Time>,
 ) {
     for (entity, attributes, map_handle, manage_mesh) in maps.iter_mut() {
-        let Some(map) = map_materials.get_mut(map_handle) else {
+        let Some(map) = map_materials.get_mut(&map_handle.0) else {
             continue;
         };
         let Some(atlas) = images.get_mut(&map.atlas_texture) else {
@@ -531,7 +557,7 @@ pub fn update_loading_maps<C: Customization>(
             MapAttributes::set_map_position(attributes, &mut mesh, &map);
             MapAttributes::set_animation_state(attributes, &mut mesh, &time);
 
-            let mesh = Mesh2dHandle(meshes.add(mesh));
+            let mesh = Mesh2d(meshes.add(mesh));
             commands.entity(entity).insert(mesh);
         }
 
@@ -544,9 +570,9 @@ pub fn update_map_vertex_attributes<C: Customization>(
     map_materials: ResMut<Assets<Map<C>>>,
     maps: Query<(
         Entity,
-        &Handle<Map<C>>,
+        &MapHandle<C>,
         &MapAttributes,
-        Option<&Mesh2dHandle>,
+        Option<&Mesh2d>,
         Option<&MeshManagedByMap>,
     )>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -554,7 +580,7 @@ pub fn update_map_vertex_attributes<C: Customization>(
     time: Res<Time>,
 ) {
     for (entity, map_handle, attr, mesh_handle, manage_mesh) in maps.iter() {
-        let Some(map) = map_materials.get(map_handle) else {
+        let Some(map) = map_materials.get(&map_handle.0) else {
             warn!("No map material");
             continue;
         };
@@ -574,7 +600,7 @@ pub fn update_map_vertex_attributes<C: Customization>(
         MapAttributes::set_map_position(Some(attr), &mut mesh, &map);
         MapAttributes::set_animation_state(Some(attr), &mut mesh, &time);
 
-        let mesh = Mesh2dHandle(meshes.add(mesh));
+        let mesh = Mesh2d(meshes.add(mesh));
         commands.entity(entity).insert(mesh);
     }
 }

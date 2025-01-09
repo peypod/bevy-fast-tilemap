@@ -1,5 +1,6 @@
 use super::prelude::*;
-use bevy::{prelude::*, sprite::Mesh2dHandle};
+use bevy::prelude::*;
+use bevy::sprite::{Material2d, Material2dPlugin, MeshMaterial2d};
 
 // Bundle of components you should typically have for a map.
 #[derive(Bundle, Clone)]
@@ -7,8 +8,8 @@ pub struct MapBundleUnmanaged<C: Customization> {
     pub loading: MapLoading,
     pub attributes: MapAttributes,
 
-    pub material: Handle<Map<C>>,
-    pub mesh: Mesh2dHandle,
+    pub material: MapHandle<C>,
+    pub mesh: Mesh2d,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
@@ -35,7 +36,7 @@ impl<C: Customization> Default for MapBundleUnmanaged<C> {
 impl<C: Customization> MapBundleUnmanaged<C> {
     pub fn new(map: Map<C>, materials: &mut Assets<Map<C>>) -> Self {
         Self {
-            material: materials.add(map),
+            material: MapHandle(materials.add(map)),
             ..default()
         }
     }
@@ -47,8 +48,8 @@ pub struct MapBundleManaged<C: Customization> {
     pub loading: MapLoading,
     pub attributes: MapAttributes,
 
-    pub material: Handle<Map<C>>,
-    pub mesh: Mesh2dHandle,
+    pub material: MapHandle<C>,
+    pub mesh: Mesh2d,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
@@ -78,7 +79,7 @@ impl<C: Customization> Default for MapBundleManaged<C> {
 impl<C: Customization> MapBundleManaged<C> {
     pub fn new(map: Map<C>, materials: &mut Assets<Map<C>>) -> Self {
         Self {
-            material: materials.add(map),
+            material: MapHandle(materials.add(map)),
             ..default()
         }
     }
