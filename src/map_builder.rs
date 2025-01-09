@@ -162,6 +162,7 @@ impl<C: Customization> MapBuilder<C> {
         );
 
 
+
         initializer(&mut MapIndexerMut::<C> { 
             map: &mut self.map,
 //            shader_buff: shader_buffers.get_mut(self.map.map_texture_handle).unwrap(), 
@@ -183,6 +184,7 @@ impl<C: Customization> MapBuilder<C> {
         self.map.map_uniform.update_world_size();
 
         self.map
+        //(self.map, shader_buff)
         //(self.map, shader_buff)
     } // fn build_and_initialize
 
