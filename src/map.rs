@@ -463,13 +463,14 @@ impl<'a, C: Customization> MapIndexerMut<'a, C> {
         self.map.map_texture[idx] = v;
     }
 
-    pub fn set_buffer(&mut self, shader_buff: &mut ShaderStorageBuffer) {
-        
+    pub fn set_buffer(&mut self, assets: &mut ResMut<Assets<ShaderStorageBuffer>>) {
+
+        let shader_buff = assets.get_mut(&self.map.map_texture_handle).unwrap();
+
         shader_buff.set_data(self.map.map_texture.clone());
         //let Some(buffer) = shader_storage_buffer.get_mut(&self.map.map_texture_handle) else {
         //    return;
         //};
-
     }
 
     pub fn world_to_map(&self, world: Vec2) -> Vec2 {

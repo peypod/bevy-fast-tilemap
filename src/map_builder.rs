@@ -166,8 +166,8 @@ impl<C: Customization> MapBuilder<C> {
         initializer(&mut MapIndexerMut::<C> { 
             map: &mut self.map,
 //            shader_buff: shader_buffers.get_mut(self.map.map_texture_handle).unwrap(), 
-        
         });
+
 
         //let shader_buff = shader_buffers.get_mut(&mut handle).unwrap();
         ////let shader_buff = shader_buffers.get_mut(&mut self.map.map_texture_handle).unwrap();
@@ -179,10 +179,11 @@ impl<C: Customization> MapBuilder<C> {
 
         let handle = shader_buffers.add(asset);
 
-
+        
         self.map.update_inverse_projection();
         self.map.map_uniform.update_world_size();
-
+        
+        self.map.map_texture_handle = handle;
         self.map
         //(self.map, shader_buff)
         //(self.map, shader_buff)
